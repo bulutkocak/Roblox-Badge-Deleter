@@ -5,8 +5,9 @@ Delete all badges from your Roblox profile with one click.
 ## Features
 
 - **Bulk deletion** - Remove all badges from your profile at once
+- **Game-specific filtering** - Delete only badges from a specific game by entering its ID
 - **Real-time progress** - Live stats showing deleted, failed, and rate limit hits
-- **Smart rate limiting** - Automatically handles Roblox API limits
+- **Smart rate limiting** - Automatically handles Roblox API limits with exponential backoff
 - **Visual feedback** - Progress bar and detailed activity log
 - **Cancel anytime** - Stop the process whenever you want
 - **Auto-retry** - Failed deletions are retried automatically
@@ -28,9 +29,16 @@ Delete all badges from your Roblox profile with one click.
 ## How to Use
 
 1. Go to your Roblox profile page (`roblox.com/users/YOUR_ID`)
-2. Click the red **🗑** button in the bottom-right corner
-3. Click **Start** to begin deletion
-4. Watch the progress and wait for completion
+2. Look for the red **🗑** Badge Deleter panel in the bottom-right corner
+3. **Optional**: Enter a Game ID to delete only badges from that specific game
+4. Click **Start** to begin deletion
+5. Watch the progress and wait for completion
+
+### Game-Specific Deletion Example
+To delete only badges from "The Border" game:
+1. Enter `1927139201` in the Game ID field
+2. Click Start
+3. Only badges from that game will be deleted
 
 ## Configuration
 
@@ -38,17 +46,30 @@ You can adjust these settings at the top of the script:
 
 ```javascript
 const CONFIG = {
-    DELETE_DELAY_MS:    500,   // Delay between deletions
+    DELETE_DELAY_MS:    500,   // Delay between deletions (ms)
     RETRY_LIMIT:        3,     // Max retry attempts per badge
-    RATE_LIMIT_BASE_MS: 10000, // Initial rate limit wait time
+    RETRY_DELAY_MS:     2000,  // Delay between retries (ms)
+    PAGE_LIMIT:         100,   // Badges per API request
+    RATE_LIMIT_BASE_MS: 10000, // Initial rate limit wait time (ms)
+    RATE_LIMIT_MAX_MS:  120000,// Maximum rate limit wait time (ms)
+    RATE_LIMIT_RETRIES: 5,     // Max rate limit retries
 };
 ```
+
+## How It Works
+
+1. **Profile Detection**: Script automatically detects when you're on your own profile
+2. **CSRF Token**: Fetches a CSRF token required for API requests
+3. **Badge Scanning**: Retrieves all badges from your profile
+4. **Game Filtering**: If a Game ID is provided, checks each badge's game using the badge page
+5. **Deletion Process**: Deletes each badge with retry logic and rate limit handling
+6. **Progress Tracking**: Updates stats and progress bar in real-time
 
 ## Technologies
 
 - JavaScript (ES6+)
-- Roblox API
-- Tampermonkey API
+- Roblox REST API
+- Tampermonkey Userscript API
 
 ## Contributing
 
