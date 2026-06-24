@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roblox Badge Deleter
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.0.1
 // @description  Delete all badges from your own Roblox profile
 // @author       Bulut
 // @match        https://www.roblox.com/users/*
@@ -45,6 +45,7 @@
     let isCancelled    = false;
     let rateLimitHits  = 0;
     let currentBackoff = CONFIG.RATE_LIMIT_BASE_MS;
+    let gameFilter     = '';
 
     const ui = buildUI();
     document.body.appendChild(ui.container);
@@ -177,6 +178,41 @@
                 margin-bottom: 12px;
             }
 
+            #bd-filter-wrap {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 12px;
+                align-items: center;
+            }
+
+            #bd-filter-input {
+                flex: 1;
+                padding: 6px 10px;
+                background: #18181f;
+                border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 6px;
+                color: #d0d0d8;
+                font-size: 12px;
+                font-family: inherit;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+
+            #bd-filter-input:focus {
+                border-color: rgba(220, 53, 69, 0.4);
+            }
+
+            #bd-filter-input::placeholder {
+                color: #44444e;
+                font-size: 11px;
+            }
+
+            #bd-filter-label {
+                font-size: 11px;
+                color: #55555f;
+                white-space: nowrap;
+            }
+
             #bd-log {
                 max-height: 110px;
                 overflow-y: auto;
@@ -285,6 +321,21 @@
         const rateBanner = document.createElement('div');
         rateBanner.id = 'bd-rate-banner';
 
+        const filterWrap = document.createElement('div');
+        filterWrap.id = 'bd-filter-wrap';
+
+        const filterLabel = document.createElement('span');
+        filterLabel.id = 'bd-filter-label';
+        filterLabel.textContent = 'Game ID:';
+
+        const filterInput = document.createElement('input');
+        filterInput.id = 'bd-filter-input';
+        filterInput.type = 'text';
+        filterInput.placeholder = 'Leave empty for all badges';
+        filterInput.value = '';
+
+        filterWrap.append(filterLabel, filterInput);
+
         const log = document.createElement('div');
         log.id = 'bd-log';
 
@@ -303,10 +354,11 @@
         cancelBtn.disabled = true;
 
         btns.append(startBtn, cancelBtn);
-        container.append(header, status, stats, barWrap, rateBanner, log, btns);
+        container.append(header, status, stats, barWrap, rateBanner, filterWrap, log, btns);
         root.appendChild(container);
 
         startBtn.addEventListener('click', () => {
+            gameFilter = filterInput.value.trim();
             startBtn.disabled = true;
             cancelBtn.disabled = false;
             runDeletion();
@@ -329,6 +381,7 @@
             statDeleted: statDeleted.val,
             statFailed:  statFailed.val,
             statRL:      statRL.val,
+            filterInput,
         };
     }
 
@@ -392,6 +445,30 @@
         appendLog('✔ CSRF token acquired', '#34d399');
     }
 
+    async function getBadgeGameIdFromPage(badgeId) {
+        try {
+            const res = await fetch(`https://www.roblox.com/badges/${badgeId}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) return null;
+            const html = await res.text();
+            
+            const match = html.match(/<a\s+href=["']https:\/\/www\.roblox\.com\/games\/(\d+)/);
+            if (match) {
+                return match[1];
+            }
+            
+            const match2 = html.match(/games\/(\d+)/);
+            if (match2) {
+                return match2[1];
+            }
+            
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     async function fetchAllBadges() {
         setStatus('Scanning badges…');
         const badges = [];
@@ -420,13 +497,34 @@
             if (!res.ok) throw new Error(`Badge fetch failed (HTTP ${res.status})`);
 
             const json = await res.json();
-            badges.push(...json.data.map(b => ({ id: b.id, name: b.name })));
+            
+            let filteredData = [];
+            
+            if (gameFilter) {
+                for (const badge of json.data) {
+                    const gameId = await getBadgeGameIdFromPage(badge.id);
+                    if (gameId === gameFilter) {
+                        filteredData.push(badge);
+                        appendLog(`  ✓ "${badge.name}" matches game ${gameFilter}`, '#34d399');
+                    }
+                    await sleep(100);
+                }
+                appendLog(`  Page ${page}: ${filteredData.length} of ${json.data.length} badges match game ${gameFilter}`, '#fbbf24');
+            } else {
+                filteredData = json.data;
+                appendLog(`  Page ${page}: ${json.data.length} badges loaded`, '#34d399');
+            }
+            
+            badges.push(...filteredData.map(b => ({ id: b.id, name: b.name })));
             cursor = json.nextPageCursor || '';
-            appendLog(`  Page ${page}: ${json.data.length} badges loaded`);
             page++;
         } while (cursor);
 
-        appendLog(`✔ Found ${badges.length} badge${badges.length !== 1 ? 's' : ''}`, '#34d399');
+        if (gameFilter) {
+            appendLog(`✔ Found ${badges.length} badge${badges.length !== 1 ? 's' : ''} from game ${gameFilter}`, '#34d399');
+        } else {
+            appendLog(`✔ Found ${badges.length} badge${badges.length !== 1 ? 's' : ''}`, '#34d399');
+        }
         return badges;
     }
 
@@ -494,8 +592,13 @@
             const badges = await fetchAllBadges();
 
             if (badges.length === 0) {
-                setStatus('No badges found on your profile.');
-                appendLog('Nothing to delete.', '#fbbf24');
+                if (gameFilter) {
+                    setStatus(`No badges found from game ${gameFilter} on your profile.`);
+                    appendLog(`No badges match game ID ${gameFilter}.`, '#fbbf24');
+                } else {
+                    setStatus('No badges found on your profile.');
+                    appendLog('Nothing to delete.', '#fbbf24');
+                }
                 ui.startBtn.disabled = false;
                 return;
             }
