@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Roblox Badge Deleter
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  Delete all badges from your own Roblox profile
 // @author       Bulut
-// @match        https://www.roblox.com/users/*
+// @match        https://www.roblox.com/users/*/profile
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=roblox.com
 // @grant        none
 // @license      MIT
