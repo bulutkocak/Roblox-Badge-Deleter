@@ -24,7 +24,6 @@
         RATE_LIMIT_RETRIES: 5,
     };
 
-    // ── Auth check ──────────────────────────────────────────────────────────
     async function getAuthenticatedUserId() {
         const res = await fetch('https://users.roblox.com/v1/users/authenticated', {
             credentials: 'include',
@@ -39,7 +38,6 @@
 
     if (!authedId || pageUserId !== authedId) return;
 
-    // ── State ────────────────────────────────────────────────────────────────
     let XCSRF          = '';
     let totalDeleted   = 0;
     let totalFailed    = 0;
@@ -54,14 +52,11 @@
     let isMinimized    = GM_getValue('minimized', false);
     let logLines       = [];
 
-    // ── UI Build ─────────────────────────────────────────────────────────────
     const ui = buildUI();
     document.body.appendChild(ui.root);
 
-    // Restore minimized state
     if (isMinimized) applyMinimize(true);
 
-    // Keyboard shortcut: Escape = cancel, Space = pause
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !ui.cancelBtn.disabled) {
             isCancelled = true;
@@ -77,7 +72,7 @@
     });
 
     function buildUI() {
-        // ── Styles ──
+        
         const style = document.createElement('style');
         style.textContent = `
             #bd-root * { box-sizing: border-box; }
@@ -453,7 +448,6 @@
         const container = document.createElement('div');
         container.id = 'bd-container';
 
-        // ── Header ──
         const header = document.createElement('div');
         header.id = 'bd-header';
 
@@ -487,11 +481,9 @@
         headerActions.append(exportBtn, minimizeBtn);
         header.append(icon, titleWrap, headerActions);
 
-        // ── Body (collapsible) ──
         const body = document.createElement('div');
         body.id = 'bd-body';
 
-        // ── Dry run toggle ──
         const dryToggle = document.createElement('div');
         dryToggle.id = 'bd-dry-toggle';
 
@@ -508,12 +500,10 @@
 
         dryToggle.append(dryPip, dryLabel, dryBadge);
 
-        // ── Status ──
         const status = document.createElement('div');
         status.id = 'bd-status';
         status.textContent = 'Ready to scan your badges.';
 
-        // ── Stats ──
         const stats = document.createElement('div');
         stats.id = 'bd-stats';
         const statDeleted = makeStat('0', 'Deleted',  'green', 'bd-stat-deleted');
@@ -522,18 +512,15 @@
         const statRL      = makeStat('0', 'Rate Hits','amber', 'bd-stat-rl');
         stats.append(statDeleted.wrap, statFailed.wrap, statSkipped.wrap, statRL.wrap);
 
-        // ── Progress bar ──
         const barWrap = document.createElement('div');
         barWrap.id = 'bd-bar-wrap';
         const bar = document.createElement('div');
         bar.id = 'bd-bar';
         barWrap.appendChild(bar);
 
-        // ── Rate-limit banner ──
         const rateBanner = document.createElement('div');
         rateBanner.id = 'bd-rate-banner';
 
-        // ── Game filter ──
         const filterWrap = document.createElement('div');
         filterWrap.id = 'bd-filter-wrap';
         const filterLabel = document.createElement('span');
@@ -549,7 +536,6 @@
         const gameNameEl = document.createElement('div');
         gameNameEl.id = 'bd-game-name';
 
-        // ── Delete delay ──
         const delayWrap = document.createElement('div');
         delayWrap.id = 'bd-delay-wrap';
         const delayLabel = document.createElement('span');
@@ -567,14 +553,12 @@
         delaySuffix.textContent = 'ms';
         delayWrap.append(delayLabel, delayInput, delaySuffix);
 
-        // ── Log ──
         const log = document.createElement('div');
         log.id = 'bd-log';
 
         const logActions = document.createElement('div');
         logActions.id = 'bd-log-actions';
 
-        // ── Buttons ──
         const btns = document.createElement('div');
         btns.id = 'bd-btns';
 
@@ -597,7 +581,6 @@
 
         btns.append(startBtn, pauseBtn, cancelBtn);
 
-        // ── Toast ──
         const toast = document.createElement('div');
         toast.id = 'bd-toast';
 
@@ -609,7 +592,6 @@
         container.append(header, body, toast);
         root.appendChild(container);
 
-        // ── Drag logic ──
         let dragging = false, dragOffX = 0, dragOffY = 0;
         header.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('bd-hbtn')) return;
@@ -630,7 +612,6 @@
         });
         document.addEventListener('mouseup', () => { dragging = false; });
 
-        // ── Minimize ──
         minimizeBtn.addEventListener('click', () => {
             isMinimized = !isMinimized;
             GM_setValue('minimized', isMinimized);
@@ -639,14 +620,12 @@
             minimizeBtn.title = isMinimized ? 'Expand' : 'Minimize';
         });
 
-        // ── Dry run toggle ──
         dryToggle.addEventListener('click', () => {
             isDryRun = !isDryRun;
             dryToggle.classList.toggle('active', isDryRun);
             startBtn.textContent = isDryRun ? '🔍 Scan' : '▶  Start';
         });
 
-        // ── Filter input ──
         filterInput.addEventListener('input', () => {
             const val = filterInput.value.trim();
             const valid = val === '' || /^\d+$/.test(val);
@@ -655,7 +634,6 @@
             GM_setValue('gameFilter', val);
         });
 
-        // ── Delay input ──
         delayInput.addEventListener('change', () => {
             const v = parseInt(delayInput.value, 10);
             if (!isNaN(v) && v >= 100 && v <= 5000) {
@@ -664,7 +642,6 @@
             }
         });
 
-        // ── Copy log ──
         exportBtn.addEventListener('click', () => {
             if (logLines.length === 0) { showToast('Log is empty'); return; }
             navigator.clipboard.writeText(logLines.join('\n'))
@@ -672,7 +649,6 @@
                 .catch(() => showToast('Copy failed'));
         });
 
-        // ── Start ──
         startBtn.addEventListener('click', () => {
             const val = filterInput.value.trim();
             if (val && !/^\d+$/.test(val)) {
@@ -692,10 +668,8 @@
             runDeletion();
         });
 
-        // ── Pause ──
         pauseBtn.addEventListener('click', togglePause);
 
-        // ── Cancel ──
         cancelBtn.addEventListener('click', () => {
             isCancelled = true;
             isPaused = false;
@@ -865,7 +839,6 @@
     }
 
     async function deleteBadge(badge, attempt = 1, rlAttempt = 0) {
-        // Dry run: just log and count as skipped
         if (isDryRun) {
             totalSkipped++;
             appendLog(`🔍 [DRY] Would delete: "${badge.name}"`, '#60a5fa');
@@ -930,7 +903,6 @@
     }
 
     async function runDeletion() {
-        // Reset counters
         totalDeleted = totalFailed = totalSkipped = rateLimitHits = 0;
         isCancelled = isPaused = false;
         currentBackoff = CONFIG.RATE_LIMIT_BASE_MS;
