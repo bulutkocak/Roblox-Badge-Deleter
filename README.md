@@ -1,6 +1,11 @@
 # Roblox Badge Deleter
 
-Delete all badges from your Roblox profile with one click — now with dry-run preview, pause/resume, a draggable panel, and more.
+Delete all badges from your Roblox profile with one click — with dry-run preview, pause/resume, a draggable panel, and more.
+
+## What's New in v2.1
+
+- **Optimized codebase** — minified CSS, consolidated DOM helpers (`el`/`btn` factories), and tighter logic throughout for a smaller footprint
+- All v2.0 features retained with no behaviour changes
 
 ## What's New in v2.0
 
@@ -39,7 +44,7 @@ Delete all badges from your Roblox profile with one click — now with dry-run p
 2. Click the Tampermonkey icon → "Create a new script"
 3. Paste the script contents and press `Ctrl+S` to save
 
-> **Note:** v2.0 uses `@grant GM_setValue` and `@grant GM_getValue` to persist settings. Make sure Tampermonkey has storage permissions enabled (it does by default).
+> **Note:** This script uses `@grant GM_setValue` and `@grant GM_getValue` to persist settings. Make sure Tampermonkey has storage permissions enabled (it does by default).
 
 ## How to Use
 
