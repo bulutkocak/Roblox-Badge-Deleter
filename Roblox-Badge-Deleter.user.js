@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roblox Badge Deleter
 // @namespace    http://tampermonkey.net/
-// @version      2.2.0
+// @version      2.3.0
 // @description  Delete all badges from your Roblox profile — with dry-run, pause/resume, name filter, elapsed timer, JSON export, and more
 // @author       Bulut
 // @match        https://www.roblox.com/users/*/profile
@@ -15,16 +15,16 @@
     'use strict';
 
     const CONFIG = {
-        DELETE_DELAY_MS:    500,
-        RETRY_LIMIT:        3,
-        RETRY_DELAY_MS:     2000,
-        PAGE_LIMIT:         100,
+        DELETE_DELAY_MS: 500,
+        RETRY_LIMIT: 3,
+        RETRY_DELAY_MS: 2000,
+        PAGE_LIMIT: 100,
         RATE_LIMIT_BASE_MS: 10000,
-        RATE_LIMIT_MAX_MS:  120000,
+        RATE_LIMIT_MAX_MS: 120000,
         RATE_LIMIT_RETRIES: 5,
     };
 
-    const VERSION = '2.2.0';
+    const VERSION = '2.3.0';
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -38,26 +38,26 @@
     }
 
     const pageUserId = window.location.pathname.split('/')[2];
-    const authedId   = await getAuthenticatedUserId();
+    const authedId = await getAuthenticatedUserId();
     if (!authedId || pageUserId !== authedId) return;
 
-    let XCSRF          = '';
-    let totalDeleted   = 0;
-    let totalFailed    = 0;
-    let totalSkipped   = 0;
-    let isCancelled    = false;
-    let isPaused       = false;
-    let isDryRun       = false;
-    let rateLimitHits  = 0;
+    let XCSRF = '';
+    let totalDeleted = 0;
+    let totalFailed = 0;
+    let totalSkipped = 0;
+    let isCancelled = false;
+    let isPaused = false;
+    let isDryRun = false;
+    let rateLimitHits = 0;
     let currentBackoff = CONFIG.RATE_LIMIT_BASE_MS;
-    let gameFilter     = GM_getValue('gameFilter', '');
-    let nameFilter     = GM_getValue('nameFilter', '');
-    let deleteDelay    = parseInt(GM_getValue('deleteDelay', CONFIG.DELETE_DELAY_MS), 10);
-    let isMinimized    = GM_getValue('minimized', false);
-    let logLines       = [];
-    let deletedBadges  = [];   // { id, name } — for JSON export
-    let startTime      = 0;
-    let timerInterval  = null;
+    let gameFilter = GM_getValue('gameFilter', '');
+    let nameFilter = GM_getValue('nameFilter', '');
+    let deleteDelay = parseInt(GM_getValue('deleteDelay', CONFIG.DELETE_DELAY_MS), 10);
+    let isMinimized = GM_getValue('minimized', false);
+    let logLines = [];
+    let deletedBadges = [];
+    let startTime = 0;
+    let timerInterval = null;
 
     const ui = buildUI();
     document.body.appendChild(ui.root);
@@ -66,10 +66,10 @@
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && !ui.cancelBtn.disabled) {
             isCancelled = true;
-            isPaused    = false;
+            isPaused = false;
             setStatus('Cancelling…');
             ui.cancelBtn.disabled = true;
-            ui.pauseBtn.disabled  = true;
+            ui.pauseBtn.disabled = true;
         }
         if (e.key === ' ' && e.target === document.body && !ui.pauseBtn.disabled) {
             e.preventDefault();
@@ -93,8 +93,6 @@
                 user-select:none;transition:height .25s ease,padding .25s ease
             }
             #bd-container.minimized #bd-body{display:none}
-
-            /* Header */
             #bd-header{display:flex;align-items:center;gap:9px;margin-bottom:14px;cursor:grab}
             #bd-header:active{cursor:grabbing}
             #bd-icon{
@@ -124,8 +122,6 @@
                 font-family:inherit
             }
             .bd-hbtn:hover{color:#c8c8d8;background:#161620;border-color:rgba(255,255,255,.12)}
-
-            /* Dry-run toggle */
             #bd-dry-toggle{
                 display:flex;align-items:center;gap:8px;
                 background:#0f0f18;border:1px solid rgba(255,255,255,.05);
@@ -154,14 +150,10 @@
                 border:1px solid rgba(251,191,36,.2);display:none
             }
             #bd-dry-toggle.active #bd-dry-badge{display:block}
-
-            /* Status + timer row */
             #bd-status-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;min-height:18px}
             #bd-status{font-size:12px;color:#55556a;line-height:1.4;flex:1}
             #bd-timer{font-size:11px;color:#2d2d3a;font-variant-numeric:tabular-nums;font-family:'JetBrains Mono','Cascadia Code',monospace;transition:color .3s}
             #bd-timer.running{color:#60a5fa}
-
-            /* Stats */
             #bd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
             .bd-stat{
                 background:#0d0d18;border:1px solid rgba(255,255,255,.03);
@@ -173,14 +165,10 @@
             .bd-stat-val.amber{color:#fbbf24}
             .bd-stat-val.blue{color:#60a5fa}
             .bd-stat-label{font-size:9px;color:#2a2a38;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
-
-            /* Progress bar */
             #bd-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
             #bd-bar-wrap{flex:1;background:#0d0d18;border-radius:99px;height:5px;overflow:hidden}
             #bd-bar{height:100%;width:0%;background:linear-gradient(90deg,#dc3545,#ff6b7a);border-radius:99px;transition:width .4s cubic-bezier(.4,0,.2,1),background .3s}
             #bd-progress-pct{font-size:10px;color:#2a2a38;font-variant-numeric:tabular-nums;min-width:30px;text-align:right;font-family:'JetBrains Mono',monospace}
-
-            /* Rate-limit banner */
             #bd-rate-banner{
                 display:none;
                 background:rgba(120,53,9,.12);
@@ -189,8 +177,6 @@
                 font-size:11px;color:#fbbf24;
                 font-variant-numeric:tabular-nums;text-align:center;margin-bottom:10px
             }
-
-            /* Filters */
             .bd-field-row{display:flex;align-items:center;gap:7px;margin-bottom:9px}
             .bd-field-label{font-size:10.5px;color:#3a3a4e;white-space:nowrap;min-width:60px}
             .bd-field-input{
@@ -209,8 +195,6 @@
                 margin-top:-6px;margin-bottom:8px;
                 padding-left:67px;min-height:14px
             }
-
-            /* Log */
             #bd-log{
                 max-height:90px;overflow-y:auto;
                 background:#060610;
@@ -224,8 +208,6 @@
             #bd-log::-webkit-scrollbar-track{background:transparent}
             #bd-log::-webkit-scrollbar-thumb{background:#181825;border-radius:99px}
             #bd-log .bd-line{padding:1.5px 0;line-height:1.5}
-
-            /* Log actions */
             #bd-log-actions{display:flex;gap:5px;justify-content:flex-end;margin-bottom:10px}
             .bd-log-btn{
                 background:transparent;
@@ -235,8 +217,6 @@
                 transition:color .15s,border-color .15s;font-family:inherit
             }
             .bd-log-btn:hover{color:#aaaabc;border-color:rgba(255,255,255,.1)}
-
-            /* Buttons */
             #bd-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
             .bd-btn{
                 padding:9px 0;border:none;border-radius:9px;
@@ -258,8 +238,6 @@
             #bd-pause-btn.paused{background:rgba(251,191,36,.08);color:#fbbf24;border-color:rgba(251,191,36,.25)}
             #bd-cancel-btn{background:#12121e;color:#666678;border:1px solid rgba(255,255,255,.06)}
             #bd-cancel-btn:hover:not(:disabled){background:rgba(248,113,113,.08);color:#f87171;border-color:rgba(248,113,113,.25)}
-
-            /* Toast */
             #bd-toast{
                 position:absolute;bottom:72px;left:50%;
                 transform:translateX(-50%) translateY(8px);
@@ -270,8 +248,6 @@
                 transition:opacity .2s,transform .2s
             }
             #bd-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-            /* Confirm modal overlay */
             #bd-confirm{
                 display:none;position:absolute;inset:0;
                 background:rgba(5,5,14,.9);backdrop-filter:blur(4px);
@@ -292,59 +268,59 @@
         `;
         document.head.appendChild(style);
 
-        const root      = document.createElement('div');
-        root.id         = 'bd-root';
+        const root = document.createElement('div');
+        root.id = 'bd-root';
         const container = document.createElement('div');
-        container.id    = 'bd-container';
+        container.id = 'bd-container';
         container.style.position = 'fixed';
 
-        const header      = mkEl('div', 'bd-header');
-        const icon        = mkEl('div', 'bd-icon');
-        icon.textContent  = '🗑';
+        const header = mkEl('div', 'bd-header');
+        const icon = mkEl('div', 'bd-icon');
+        icon.textContent = '🗑';
 
-        const titleWrap   = mkEl('div', 'bd-title-wrap');
-        const titleEl     = mkEl('div', 'bd-title');
-        const vBadge      = mkEl('span', 'bd-version-badge');
+        const titleWrap = mkEl('div', 'bd-title-wrap');
+        const titleEl = mkEl('div', 'bd-title');
+        const vBadge = mkEl('span', 'bd-version-badge');
         vBadge.textContent = `v${VERSION}`;
         titleEl.append(document.createTextNode('Badge Deleter'), vBadge);
-        const subtitleEl  = mkEl('div', 'bd-subtitle');
+        const subtitleEl = mkEl('div', 'bd-subtitle');
         subtitleEl.textContent = 'Authenticated profile only';
         titleWrap.append(titleEl, subtitleEl);
 
         const headerActions = mkEl('div', 'bd-header-actions');
-        const exportLogBtn  = mkBtn('bd-hbtn', '📋', 'Copy log');
+        const exportLogBtn = mkBtn('bd-hbtn', '📋', 'Copy log');
         const exportJsonBtn = mkBtn('bd-hbtn', '{}', 'Export deleted badges as JSON');
-        const minimizeBtn   = mkBtn('bd-hbtn', '−', 'Minimize');
+        const minimizeBtn = mkBtn('bd-hbtn', '−', 'Minimize');
         headerActions.append(exportLogBtn, exportJsonBtn, minimizeBtn);
         header.append(icon, titleWrap, headerActions);
 
-        const body     = mkEl('div', 'bd-body');
+        const body = mkEl('div', 'bd-body');
 
         const dryToggle = mkEl('div', 'bd-dry-toggle');
-        const dryPip    = mkEl('div', 'bd-dry-pip');
-        const dryLabel  = mkEl('div', 'bd-dry-label');
+        const dryPip = mkEl('div', 'bd-dry-pip');
+        const dryLabel = mkEl('div', 'bd-dry-label');
         dryLabel.textContent = 'Dry run — preview only, no deletions';
-        const dryBadge  = mkEl('div', 'bd-dry-badge');
+        const dryBadge = mkEl('div', 'bd-dry-badge');
         dryBadge.textContent = 'PREVIEW';
         dryToggle.append(dryPip, dryLabel, dryBadge);
 
         const statusRow = mkEl('div', 'bd-status-row');
-        const statusEl  = mkEl('div', 'bd-status');
+        const statusEl = mkEl('div', 'bd-status');
         statusEl.textContent = 'Ready to scan your badges.';
-        const timerEl   = mkEl('div', 'bd-timer');
+        const timerEl = mkEl('div', 'bd-timer');
         timerEl.textContent = '0:00';
         statusRow.append(statusEl, timerEl);
 
-        const stats       = mkEl('div', 'bd-stats');
-        const statDeleted = makeStat('0', 'Deleted',   'green', 'bd-stat-deleted');
-        const statFailed  = makeStat('0', 'Failed',    'red',   'bd-stat-failed');
-        const statSkipped = makeStat('0', 'Skipped',   'blue',  'bd-stat-skipped');
-        const statRL      = makeStat('0', 'Rate Hits', 'amber', 'bd-stat-rl');
+        const stats = mkEl('div', 'bd-stats');
+        const statDeleted = makeStat('0', 'Deleted', 'green', 'bd-stat-deleted');
+        const statFailed = makeStat('0', 'Failed', 'red', 'bd-stat-failed');
+        const statSkipped = makeStat('0', 'Skipped', 'blue', 'bd-stat-skipped');
+        const statRL = makeStat('0', 'Rate Hits', 'amber', 'bd-stat-rl');
         stats.append(statDeleted.wrap, statFailed.wrap, statSkipped.wrap, statRL.wrap);
 
-        const barRow     = mkEl('div', 'bd-bar-row');
-        const barWrap    = mkEl('div', 'bd-bar-wrap');
-        const bar        = mkEl('div', 'bd-bar');
+        const barRow = mkEl('div', 'bd-bar-row');
+        const barWrap = mkEl('div', 'bd-bar-wrap');
+        const bar = mkEl('div', 'bd-bar');
         const progressPct = mkEl('div', 'bd-progress-pct');
         progressPct.textContent = '0%';
         barWrap.appendChild(bar);
@@ -352,63 +328,63 @@
 
         const rateBanner = mkEl('div', 'bd-rate-banner');
 
-        const gameRow    = mkEl('div', 'bd-field-row');
-        const gameLabel  = mkEl('span', 'bd-field-label');
+        const gameRow = mkEl('div', 'bd-field-row');
+        const gameLabel = mkEl('span', 'bd-field-label');
         gameLabel.textContent = 'Game ID:';
-        const gameInput  = document.createElement('input');
-        gameInput.id     = 'bd-game-input';
+        const gameInput = document.createElement('input');
+        gameInput.id = 'bd-game-input';
         gameInput.className = 'bd-field-input';
-        gameInput.type   = 'text';
+        gameInput.type = 'text';
         gameInput.placeholder = 'All badges (leave blank)';
-        gameInput.value  = gameFilter;
+        gameInput.value = gameFilter;
         gameRow.append(gameLabel, gameInput);
         const gameNameEl = mkEl('div', 'bd-game-name');
 
-        const nameRow   = mkEl('div', 'bd-field-row');
+        const nameRow = mkEl('div', 'bd-field-row');
         const nameLabel = mkEl('span', 'bd-field-label');
         nameLabel.textContent = 'Name filter:';
         const nameInput = document.createElement('input');
-        nameInput.id    = 'bd-name-input';
+        nameInput.id = 'bd-name-input';
         nameInput.className = 'bd-field-input';
-        nameInput.type  = 'text';
+        nameInput.type = 'text';
         nameInput.placeholder = 'Regex or substring (optional)';
         nameInput.value = nameFilter;
         nameRow.append(nameLabel, nameInput);
 
-        const delayRow    = mkEl('div', 'bd-field-row');
-        const delayLabel  = mkEl('span', 'bd-field-label');
+        const delayRow = mkEl('div', 'bd-field-row');
+        const delayLabel = mkEl('span', 'bd-field-label');
         delayLabel.textContent = 'Delay:';
-        const delayInput  = document.createElement('input');
-        delayInput.id     = 'bd-delay-input';
+        const delayInput = document.createElement('input');
+        delayInput.id = 'bd-delay-input';
         delayInput.className = 'bd-field-input';
-        delayInput.type   = 'number';
-        delayInput.min    = '100';
-        delayInput.max    = '5000';
-        delayInput.step   = '100';
-        delayInput.value  = deleteDelay;
+        delayInput.type = 'number';
+        delayInput.min = '100';
+        delayInput.max = '5000';
+        delayInput.step = '100';
+        delayInput.value = deleteDelay;
         delayInput.style.width = '80px';
-        delayInput.style.flex  = 'none';
+        delayInput.style.flex = 'none';
         const delaySuffix = mkEl('span', 'bd-field-label');
         delaySuffix.textContent = 'ms';
         delaySuffix.style.minWidth = 'auto';
         delayRow.append(delayLabel, delayInput, delaySuffix);
 
-        const log        = mkEl('div', 'bd-log');
+        const log = mkEl('div', 'bd-log');
         const logActions = mkEl('div', 'bd-log-actions');
         const autoScrollLbl = document.createElement('label');
         autoScrollLbl.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;color:#303040';
         const autoScrollChk = document.createElement('input');
-        autoScrollChk.type    = 'checkbox';
-        autoScrollChk.id      = 'bd-autoscroll';
+        autoScrollChk.type = 'checkbox';
+        autoScrollChk.id = 'bd-autoscroll';
         autoScrollChk.checked = GM_getValue('autoScroll', true);
         autoScrollChk.style.accentColor = '#dc3545';
         autoScrollLbl.append(autoScrollChk, document.createTextNode('Auto-scroll'));
         const clearLogBtn = mkBtn('bd-log-btn', 'Clear', 'Clear log');
         logActions.append(autoScrollLbl, clearLogBtn);
 
-        const btns      = mkEl('div', 'bd-btns');
-        const startBtn  = mkBtn('bd-btn', '▶  Start',  null, 'bd-start-btn');
-        const pauseBtn  = mkBtn('bd-btn', '⏸  Pause',  null, 'bd-pause-btn');
+        const btns = mkEl('div', 'bd-btns');
+        const startBtn = mkBtn('bd-btn', '▶  Start', null, 'bd-start-btn');
+        const pauseBtn = mkBtn('bd-btn', '⏸  Pause', null, 'bd-pause-btn');
         pauseBtn.disabled = true;
         const cancelBtn = mkBtn('bd-btn', '✕  Cancel', null, 'bd-cancel-btn');
         cancelBtn.disabled = true;
@@ -417,10 +393,10 @@
         const toast = mkEl('div', 'bd-toast');
 
         const confirmOverlay = mkEl('div', 'bd-confirm');
-        const confirmMsg     = mkEl('div', 'bd-confirm-msg');
-        const confirmBtns    = mkEl('div', 'bd-confirm-btns');
-        const confirmYes     = mkBtn('bd-cfm-btn', 'Delete all', null, 'bd-confirm-yes');
-        const confirmNo      = mkBtn('bd-cfm-btn', 'Cancel',     null, 'bd-confirm-no');
+        const confirmMsg = mkEl('div', 'bd-confirm-msg');
+        const confirmBtns = mkEl('div', 'bd-confirm-btns');
+        const confirmYes = mkBtn('bd-cfm-btn', 'Delete all', null, 'bd-confirm-yes');
+        const confirmNo = mkBtn('bd-cfm-btn', 'Cancel', null, 'bd-confirm-no');
         confirmBtns.append(confirmYes, confirmNo);
         confirmOverlay.append(confirmMsg, confirmBtns);
 
@@ -436,16 +412,16 @@
         header.addEventListener('mousedown', e => {
             if (e.target.classList.contains('bd-hbtn')) return;
             dragging = true;
-            const r  = container.getBoundingClientRect();
+            const r = container.getBoundingClientRect();
             dragOffX = e.clientX - r.left;
             dragOffY = e.clientY - r.top;
             container.style.transition = 'none';
         });
         document.addEventListener('mousemove', e => {
             if (!dragging) return;
-            container.style.left   = `${e.clientX - dragOffX}px`;
-            container.style.top    = `${e.clientY - dragOffY}px`;
-            container.style.right  = 'auto';
+            container.style.left = `${e.clientX - dragOffX}px`;
+            container.style.top = `${e.clientY - dragOffY}px`;
+            container.style.right = 'auto';
             container.style.bottom = 'auto';
         });
         document.addEventListener('mouseup', () => { dragging = false; });
@@ -527,9 +503,9 @@
             }
             nameInput.classList.remove('invalid');
 
-            gameFilter  = gVal;
-            nameFilter  = nVal;
-            isDryRun    = dryToggle.classList.contains('active');
+            gameFilter = gVal;
+            nameFilter = nVal;
+            isDryRun = dryToggle.classList.contains('active');
             deleteDelay = parseInt(delayInput.value, 10) || CONFIG.DELETE_DELAY_MS;
 
             disableControls();
@@ -540,10 +516,10 @@
 
         cancelBtn.addEventListener('click', () => {
             isCancelled = true;
-            isPaused    = false;
+            isPaused = false;
             setStatus('Cancelling…');
             cancelBtn.disabled = true;
-            pauseBtn.disabled  = true;
+            pauseBtn.disabled = true;
         });
 
         function requestConfirm(count) {
@@ -551,7 +527,7 @@
                 confirmMsg.innerHTML = `You are about to permanently delete <strong>${count} badge${count !== 1 ? 's' : ''}</strong> from your profile.<br><br>This cannot be undone. Continue?`;
                 confirmOverlay.classList.add('visible');
                 const yes = () => { cleanup(); resolve(true); };
-                const no  = () => { cleanup(); resolve(false); };
+                const no = () => { cleanup(); resolve(false); };
                 const cleanup = () => {
                     confirmYes.removeEventListener('click', yes);
                     confirmNo.removeEventListener('click', no);
@@ -571,9 +547,9 @@
         function disableControls() {
             startBtn.disabled = true;
             cancelBtn.disabled = false;
-            pauseBtn.disabled  = false;
-            gameInput.disabled  = true;
-            nameInput.disabled  = true;
+            pauseBtn.disabled = false;
+            gameInput.disabled = true;
+            nameInput.disabled = true;
             delayInput.disabled = true;
             dryToggle.style.pointerEvents = 'none';
         }
@@ -583,9 +559,9 @@
             bar, progressPct, rateBanner, log,
             startBtn, pauseBtn, cancelBtn,
             statDeleted: statDeleted.val,
-            statFailed:  statFailed.val,
+            statFailed: statFailed.val,
             statSkipped: statSkipped.val,
-            statRL:      statRL.val,
+            statRL: statRL.val,
             gameInput, nameInput, delayInput, dryToggle, gameNameEl,
             autoScrollChk, confirmOverlay,
             showToast, requestConfirm,
@@ -601,9 +577,9 @@
 
     function mkBtn(cls, text, title, id) {
         const b = document.createElement('button');
-        if (id)    b.id        = id;
-        if (cls)   b.className = cls;
-        if (title) b.title     = title;
+        if (id) b.id = id;
+        if (cls) b.className = cls;
+        if (title) b.title = title;
         b.textContent = text;
         return b;
     }
@@ -639,9 +615,9 @@
 
     function syncStats(processed, total) {
         ui.statDeleted.textContent = totalDeleted;
-        ui.statFailed.textContent  = totalFailed;
+        ui.statFailed.textContent = totalFailed;
         ui.statSkipped.textContent = totalSkipped;
-        ui.statRL.textContent      = rateLimitHits;
+        ui.statRL.textContent = rateLimitHits;
         if (total > 0) {
             const pct = Math.round(processed / total * 100);
             ui.bar.style.width = `${pct}%`;
@@ -713,10 +689,6 @@
         appendLog('✔ CSRF token acquired', '#34d399');
     }
 
-    /**
-     * Uses the Badges API (not HTML scraping) to get the game universe ID for a badge.
-     * Returns null on failure rather than throwing.
-     */
     async function getGameIdForBadge(badgeId) {
         try {
             const res = await fetch(`https://badges.roblox.com/v1/badges/${badgeId}`, {
@@ -732,7 +704,7 @@
         setStatus('Scanning badges…');
         const badges = [];
         let cursor = '';
-        let page   = 1;
+        let page = 1;
 
         do {
             const url = `https://badges.roblox.com/v1/users/${pageUserId}/badges?limit=${CONFIG.PAGE_LIMIT}&sortOrder=Asc${cursor ? `&cursor=${cursor}` : ''}`;
@@ -740,8 +712,7 @@
 
             if (res.status === 429) {
                 rateLimitHits++;
-                const waitMs = parseInt(res.headers.get('Retry-After') || '0', 10) * 1000
-                    || CONFIG.RATE_LIMIT_BASE_MS;
+                const waitMs = parseInt(res.headers.get('Retry-After') || '0', 10) * 1000 || CONFIG.RATE_LIMIT_BASE_MS;
                 appendLog(`🚦 Rate limited on page ${page} — waiting ${waitMs / 1000}s`, '#fbbf24');
                 await waitWithCountdown(waitMs);
                 continue;
@@ -749,8 +720,8 @@
 
             if (!res.ok) throw new Error(`Badge fetch failed (HTTP ${res.status})`);
 
-            const json     = await res.json();
-            let   filtered = json.data;
+            const json = await res.json();
+            let filtered = json.data;
 
             if (gameFilter) {
                 filtered = [];
@@ -805,9 +776,9 @@
         }
 
         const res = await fetch(`https://badges.roblox.com/v1/user/badges/${badge.id}`, {
-            method:      'DELETE',
+            method: 'DELETE',
             credentials: 'include',
-            headers:     { 'x-csrf-token': XCSRF },
+            headers: { 'x-csrf-token': XCSRF },
         });
 
         if (res.ok) {
@@ -826,8 +797,7 @@
                 appendLog(`✖ Rate-limit retries exhausted for "${badge.name}"`, '#f87171');
                 return false;
             }
-            const waitMs = parseInt(res.headers.get('Retry-After') || '0', 10) * 1000
-                || Math.min(currentBackoff, CONFIG.RATE_LIMIT_MAX_MS);
+            const waitMs = parseInt(res.headers.get('Retry-After') || '0', 10) * 1000 || Math.min(currentBackoff, CONFIG.RATE_LIMIT_MAX_MS);
             appendLog(`🚦 Rate limited (×${rateLimitHits}) — waiting ${waitMs / 1000}s`, '#fbbf24');
             setStatus(`Rate limited — paused ${waitMs / 1000}s`);
             currentBackoff = Math.min(currentBackoff * 2, CONFIG.RATE_LIMIT_MAX_MS);
@@ -857,9 +827,9 @@
 
     async function runDeletion() {
         totalDeleted = totalFailed = totalSkipped = rateLimitHits = 0;
-        isCancelled  = isPaused = false;
+        isCancelled = isPaused = false;
         currentBackoff = CONFIG.RATE_LIMIT_BASE_MS;
-        logLines     = [];
+        logLines = [];
         deletedBadges = [];
         ui.log.innerHTML = '';
         syncStats(0, 0);
@@ -936,14 +906,14 @@
     }
 
     function resetButtons() {
-        ui.startBtn.disabled  = false;
+        ui.startBtn.disabled = false;
         ui.cancelBtn.disabled = true;
-        ui.pauseBtn.disabled  = true;
+        ui.pauseBtn.disabled = true;
         ui.pauseBtn.classList.remove('paused');
         ui.pauseBtn.textContent = '⏸  Pause';
-        ui.gameInput.disabled   = false;
-        ui.nameInput.disabled   = false;
-        ui.delayInput.disabled  = false;
+        ui.gameInput.disabled = false;
+        ui.nameInput.disabled = false;
+        ui.delayInput.disabled = false;
         ui.dryToggle.style.pointerEvents = '';
     }
 
