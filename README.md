@@ -1,51 +1,31 @@
-# Roblox Badge Deleter
+# Roblox Badge Deleter v2.3.0
 
 Delete badges from your Roblox profile with full control — dry-run preview, name and game filters, pause/resume, elapsed timer, JSON export, and more.
-
-## What's New in v2.2.0
-
-- **Name filter** — filter by badge name using a plain substring or a JavaScript regex (e.g. `^Speed` or `arena`)
-- **Confirmation dialog** — a modal asks you to confirm before any real deletion begins, showing the exact badge count
-- **Elapsed timer** — a live clock runs during deletion so you know how long a job took
-- **JSON export** — copy all deleted badge IDs and names as a JSON array to clipboard with the `{}` button
-- **Auto-scroll toggle** — pin or unpin the log from auto-scrolling while a run is in progress
-- **Clear log button** — wipe the activity log between runs without reloading the page
-- **Progress percentage** — `X%` shown alongside the progress bar
-- **Fixed game ID lookup** — now uses `badges.roblox.com/v1/badges/{id}` (the official API) instead of scraping badge page HTML, making game filtering faster and more reliable
-- **Cleaner DOM helpers** — internal refactor separating element creation (`mkEl`) from button creation (`mkBtn`), removing an ID/className ambiguity from v2.1
-
-## What's New in v2.1
-
-- **Optimized codebase** — minified CSS, consolidated DOM helpers, tighter logic throughout
-
-## What's New in v2.0
-
-- **Dry run mode** — preview exactly which badges would be deleted without touching anything
-- **Pause / Resume** — pause mid-deletion and pick up where you left off (or press `Space`)
-- **Draggable panel** — drag the UI anywhere on screen
-- **Minimize / Expand** — collapse the panel to a header bar; state persists across page loads
-- **Configurable delay** — adjust the delay between deletions directly in the UI (100–5000 ms)
-- **Skipped stat** — dry-run results show a separate "Skipped" counter
-- **Copy log** — copy the full activity log to clipboard with one click (📋)
-- **Input validation** — Game ID field rejects non-numeric input before starting
-- **Keyboard shortcuts** — `Escape` to cancel, `Space` to pause/resume
-- **Settings persistence** — Game ID filter and delay are remembered across page loads
-- **Reset on re-run** — counters, log, and progress bar reset cleanly when you start again
 
 ## Features
 
 - **Bulk deletion** — remove all matching badges from your profile at once
 - **Game-specific filtering** — delete only badges from a specific game by entering its ID
 - **Name filtering** — delete only badges whose name matches a substring or regex
-- **Confirmation prompt** — always shows badge count and asks before deleting (skipped in dry-run)
+- **Dry run mode** — preview exactly which badges would be deleted without touching anything
+- **Pause / Resume** — pause mid-deletion and pick up where you left off (or press `Space`)
+- **Confirmation prompt** — always shows badge count and asks before deleting
 - **Real-time progress** — live stats for deleted, failed, skipped, and rate-limit hits with a percentage counter
 - **Elapsed timer** — shows how long the current run has been running
+- **Draggable panel** — drag the UI anywhere on screen
+- **Minimize / Expand** — collapse the panel to a header bar; state persists across page loads
+- **Configurable delay** — adjust the delay between deletions directly in the UI (100–5000 ms)
 - **Smart rate limiting** — automatic exponential backoff when Roblox throttles requests
 - **Visual progress bar** — changes colour on completion (green), dry-run (blue), or cancel (amber)
 - **Auto-retry** — failed deletions are retried up to 3 times automatically
 - **CSRF auto-refresh** — transparently refreshes the security token if it expires mid-run
 - **JSON export** — copy deleted badge data (ID + name) as JSON for your own records
+- **Copy log** — copy the full activity log to clipboard with one click (📋)
+- **Clear log** — wipe the activity log between runs without reloading the page
 - **Auto-scroll toggle** — keep the log pinned to the bottom, or freeze it to read entries mid-run
+- **Keyboard shortcuts** — `Escape` to cancel, `Space` to pause/resume
+- **Settings persistence** — Game ID filter, name filter, delay, minimize state, and auto-scroll are remembered across page loads
+- **Reset on re-run** — counters, log, and progress bar reset cleanly when you start again
 - **Safe by design** — only activates on your own authenticated profile page
 
 ## Installation
@@ -153,7 +133,7 @@ const CONFIG = {
 1. **Auth check** — verifies you're viewing your own profile before doing anything
 2. **CSRF token** — fetches a security token required by Roblox's API
 3. **Badge scanning** — paginates through all your badges (100 per request)
-4. **Game filtering** — if a Game ID is set, calls `badges.roblox.com/v1/badges/{id}` for each badge to confirm its game (faster and more reliable than HTML scraping used in earlier versions)
+4. **Game filtering** — if a Game ID is set, calls `badges.roblox.com/v1/badges/{id}` for each badge to confirm its game
 5. **Name filtering** — applies substring or regex match against each badge name
 6. **Confirmation** — shows you the exact count and asks you to confirm before deleting
 7. **Deletion loop** — deletes badges one at a time, respecting the configured delay
